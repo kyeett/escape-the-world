@@ -1,7 +1,8 @@
 package gateway
 
 import (
-	"fmt"
+	"encoding/json"
+	"errors"
 	"net/http"
 	"sync"
 
@@ -20,6 +21,59 @@ var statusText = map[int]string{
 }
 var mutex sync.RWMutex
 
+// DeviceInfo holds basic information about a device, and whether it is connected
+type DeviceInfo struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Kind        string `json:"kind"`
+	Description string `json:"description"`
+	Connected   bool   `json:"connected"`
+}
+
+type deviceList map[string]DeviceInfo
+
+var (
+	dMutex  = &sync.RWMutex{}
+	devices = deviceList{}
+)
+
+func registerDevice(info DeviceInfo) error {
+	dMutex.Lock()
+	defer dMutex.Unlock()
+	if info.ID == "" {
+		return errors.New("no device ID specified")
+	}
+
+	if _, alreadyExists := devices[info.ID]; alreadyExists {
+		return errors.New("device already registered")
+	}
+
+	devices[info.ID] = info
+	return nil
+}
+
+func disconnectDevice(id string) {
+	dMutex.Lock()
+	d := devices[id]
+	d.Connected = false
+	devices[id] = d
+	dMutex.Unlock()
+}
+
+func listDevices(w http.ResponseWriter, r *http.Request) {
+	dMutex.RLock()
+	defer dMutex.RUnlock()
+
+	b, err := json.MarshalIndent(devices, "", "   ")
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	logrus.Errorf("%v", string(b))
+	w.Write(b)
+
+}
+
 func connect(w http.ResponseWriter, r *http.Request) {
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -27,70 +81,34 @@ func connect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer c.Close()
-	for {
-		_, message, err := c.ReadMessage()
-		if err != nil {
-			logrus.Error("ws read:", err)
-			break
-		}
-		logrus.Infof("ws recv: %s", string(message))
 
-		response := map[string]string{
-			"response": "OK",
-		}
-
-		if err := c.WriteJSON(response); err != nil {
-			logrus.Error("ws write:", err)
-			break
-		}
-	}
-}
-
-func echo(w http.ResponseWriter, r *http.Request) {
-	c, err := upgrader.Upgrade(w, r, nil)
+	var message DeviceInfo
+	err = c.ReadJSON(&message)
 	if err != nil {
-		logrus.Error("ws upgrade:", err)
+		logrus.Error("ws read:", err)
 		return
 	}
-	defer c.Close()
-	for {
-		mt, message, err := c.ReadMessage()
-		if err != nil {
-			logrus.Error("ws read:", err)
-			break
-		}
-		logrus.Infof("ws recv: %s", string(message))
-		err = c.WriteMessage(mt, append(message, byte('\n')))
-		if err != nil {
-			logrus.Error("ws write:", err)
-			break
-		}
+
+	if err := registerDevice(message); err != nil {
+		logrus.Error("register device:", err)
+		return
+	}
+	logrus.Infof("device connected: %v", devices)
+	defer disconnectDevice(message.ID)
+
+	response := map[string]string{
+		"response": "OK",
+	}
+
+	if err := c.WriteJSON(response); err != nil {
+		logrus.Error("ws write:", err)
+		return
 	}
 }
 
 func Start(srv *http.Server) {
 
-	http.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
-		mutex.RLock()
-		msg := fmt.Sprintf("000%d", status)
-		mutex.RUnlock()
-		logrus.Info("read:", msg)
-		fmt.Fprint(w, msg)
-	})
-
-	http.HandleFunc("/toggle", func(w http.ResponseWriter, r *http.Request) {
-		mutex.Lock()
-		status = 1 - status
-		msg := fmt.Sprintf("Led turned %s\t(000%d)", statusText[status], status)
-		mutex.Unlock()
-		logrus.Info("toggle:", msg)
-		fmt.Fprint(w, msg)
-	})
-
-	http.HandleFunc("/echo", echo)
 	http.HandleFunc("/connect", connect)
-
-	if err := srv.ListenAndServe(); err != nil {
-		logrus.Error(err)
-	}
+	http.HandleFunc("/", listDevices)
+	logrus.Fatal(srv.ListenAndServe())
 }
