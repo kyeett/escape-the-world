@@ -124,20 +124,15 @@ func connect(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleBrowserConnections(conn *websocket.Conn) {
-	send := make(chan interface{})
-	wsConn := hubConnection{
-		conn,
-		send,
-	}
+	receiver := make(chan string)
 
-	h.sub <- &wsConn
+	h.sub <- receiver
 	defer func() {
-		h.unsub <- &wsConn
-		close(wsConn.send)
+		h.unsub <- receiver
+		close(receiver)
 	}()
 
-	for {
-		<-wsConn.send
+	for range receiver {
 		m := struct {
 			Message string
 		}{

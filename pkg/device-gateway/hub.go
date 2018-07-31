@@ -6,13 +6,13 @@ import (
 )
 
 type hub struct {
-	connections map[*hubConnection]bool
+	connections map[chan string]bool
 
 	// sub requests from the clients.
-	sub chan *hubConnection
+	sub chan chan string
 
 	// Unsub requests from clients.
-	unsub chan *hubConnection
+	unsub chan chan string
 
 	// Message to broadcast
 	in chan string
@@ -20,9 +20,9 @@ type hub struct {
 
 func newHub() *hub {
 	return &hub{
-		connections: make(map[*hubConnection]bool),
-		sub:         make(chan *hubConnection),
-		unsub:       make(chan *hubConnection),
+		connections: make(map[chan string]bool),
+		sub:         make(chan chan string),
+		unsub:       make(chan chan string),
 		in:          make(chan string),
 	}
 }
@@ -41,7 +41,7 @@ func (h *hub) run() {
 		case message := <-h.in:
 			logrus.Info("Send msg")
 			for c := range h.connections {
-				c.send <- message
+				c <- message
 			}
 		}
 	}
