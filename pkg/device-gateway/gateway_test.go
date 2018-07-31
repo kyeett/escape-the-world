@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -54,6 +55,7 @@ func TestConnect(t *testing.T) {
 		nil,
 		nil,
 	}
+	td.ID = uuid.New().String()
 
 	u := url.URL{
 		Scheme: "ws",
@@ -64,7 +66,7 @@ func TestConnect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer td.Close()
+	td.Close()
 
 	var expected interface{} = "OK"
 	if td.response["response"] != expected {
@@ -80,6 +82,7 @@ func TestConnectDisconnect(t *testing.T) {
 		nil,
 		nil,
 	}
+	td.ID = uuid.New().String()
 
 	u := url.URL{
 		Scheme: "ws",
@@ -90,12 +93,26 @@ func TestConnectDisconnect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer td.Close()
 
-	registerdInfo := devices[td.ID]
+	t.Log(devices)
+	if devices[td.ID].Connected != true {
+		t.Fatalf("devices[%s].Connected == %t, wanted true", td.ID, devices[td.ID].Connected)
+	}
 
-	if registerdInfo.Connected != false {
-		t.Fatalf("devices[%s][connected] != true, got %t", td.ID, registerdInfo.Connected)
+	// override the test hook, to avoid having to poll
+	disconnectDone := make(chan bool)
+	disconnectDoneTestHook = func() {
+		disconnectDone <- true
+	}
+	defer func() {
+		disconnectDoneTestHook = func() {}
+	}()
+
+	td.Close() // disconnect
+	<-disconnectDone
+
+	if devices[td.ID].Connected != false {
+		t.Fatalf("devices[%s].Connected == %t, wanted false", td.ID, devices[td.ID].Connected)
 	}
 
 }

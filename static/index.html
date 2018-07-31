@@ -1,0 +1,88 @@
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Devices Overview</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.10.19/css/dataTables.bootstrap.min.css">
+    <script src="live.js"></script>
+    <script src="https://code.jquery.com/jquery-3.3.1.js"></script>
+    <script src="https://cdn.datatables.net/1.10.19/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.19/js/dataTables.bootstrap.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#example').DataTable( {
+                "ajax": {
+                    "url": "http://localhost:8080/list",
+                    "dataSrc": ""
+                },
+                "columns": [
+                    { "data": "id" },
+                    { "data": "kind" },
+                    { "data": "connected" },
+                    /* { "data": "description" }, */
+                ],
+                "createdRow": function( row, data, dataIndex, cells){
+                    if( data['connected'] ==  true){
+                        $(cells[2]).addClass('connected');
+                    }
+                    else {
+                        $(cells[2]).addClass('disconnected');
+                    }
+                }
+            } );
+
+
+            var ws;
+            if (window.WebSocket === undefined) {
+                $("#container").append("Your browser does not support WebSockets");
+                return;
+            } else {
+                ws = initWS();
+            }
+            function initWS() {
+                var socket = new WebSocket("ws://localhost:8080/ws"),
+                    container = $("#container")
+                socket.onopen = function() {
+                    //container.append("<p>Socket is open</p>");
+                };
+                socket.onmessage = function (e) {
+                    //container.append("<p> Got some shit:" + e.data + "</p>");
+                    $('#example').DataTable().ajax.reload();
+                }
+                socket.onclose = function () {
+                    container.append("<p>Socket closed</p>");
+                    $('#example').DataTable().ajax.reload();
+                }
+                return socket;
+            }
+
+        } );
+    </script>
+    <style>
+        .disconnected {
+            background-color: grey;
+            color: gray
+        }
+        .connected {
+            background-color:springgreen;
+            color: springgreen;
+        }
+;        }
+</style>
+</head>
+<body style="padding: 30px">
+
+<div id="container"></div>
+<table id="example" class="table table-striped table-bordered" style="width:100%;">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Kind</th>
+                <th>Connected</th>
+                <!-- <th>Description</th> -->
+            </tr>
+        </thead>
+    </table>
+
+</body>
+</html>
