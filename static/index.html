@@ -17,16 +17,17 @@
                 },
                 "columns": [
                     { "data": "id" },
+                    { "data": "name" },
                     { "data": "kind" },
                     { "data": "connected" },
                     /* { "data": "description" }, */
                 ],
                 "createdRow": function( row, data, dataIndex, cells){
                     if( data['connected'] ==  true){
-                        $(cells[2]).addClass('connected');
+                        $(cells[3]).addClass('connected');
                     }
                     else {
-                        $(cells[2]).addClass('disconnected');
+                        $(cells[3]).addClass('disconnected');
                     }
                 }
             } );
@@ -67,7 +68,6 @@
             background-color:springgreen;
             color: springgreen;
         }
-;        }
 </style>
 </head>
 <body style="padding: 30px">
@@ -76,6 +76,7 @@
 <table id="example" class="table table-striped table-bordered" style="width:100%;">
         <thead>
             <tr>
+                <th>ID</th>
                 <th>Name</th>
                 <th>Kind</th>
                 <th>Connected</th>

@@ -12,7 +12,12 @@
 ### Todos
 
 * Mechanism to reset state of device
-* Update overview when state is changed
+* Handle unresponsive websocket threads
+
+#### Done
+
+* ~~Update overview when state is changed~~
+* ~~Add configurable client~~
 
 ### References
 

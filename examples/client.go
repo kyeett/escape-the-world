@@ -12,11 +12,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var addr = flag.String("addr", "localhost:8080", "http service address")
+var (
+	addr = flag.String("addr", "localhost:8080", "http service address")
+	name = flag.String("name", "", "name of device")
+)
+
+const (
+	nConnects = 1
+	delay     = 2000
+)
 
 func main() {
 	flag.Parse()
-	log.SetFlags(0)
 
 	u := url.URL{Scheme: "ws", Host: *addr, Path: "/connect"}
 
@@ -26,7 +33,11 @@ func main() {
 		"description": "kitchen thermometer",
 	}
 
-	for i := 0; i < 3; i++ {
+	if *name != "" {
+		deviceInfo["name"] = *name
+	}
+
+	for i := 0; i < nConnects; i++ {
 
 		logrus.Infof("connecting to %s", u.String())
 
@@ -56,8 +67,8 @@ func main() {
 		}
 		log.Printf("recv: %s", string(message))
 
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(delay * time.Millisecond)
 		c.Close()
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(delay * time.Millisecond)
 	}
 }
